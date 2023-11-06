@@ -11,27 +11,39 @@ import numpy as np
 
 
 """
-define super-resolusion dataset and DataModule for lightning
+define super-resolusion dataset and DataModule
+use same datamodule for all kinds of model
 """
 
-class LiSRDataset(Dataset):
-    
-    # define the data path, value of LR and HR
-    def __init__(self, data_dir: str, LR_name: str, HR_name: str):
+class RangeImageDataset(Dataset):
+
+    def __init__(self, data_dir: str, res_in: str, res_out: str):
         
-        self.data_dir = os.path.join(data_dir, 'RangeImage')
+        """Constructor of dataset class (pair: input range image & output range image).
+
+        :param data_dir: directory of dataset
+        :param res_in: input resolution of range image
+        :param res_out: output resolution of range image
+        """
+
+        super(RangeImageDataset, self).__init__()
+
+        # Dataset configurations
+        self.data_dir = data_dir
+        self.res_in = res_in
+        self.res_out = res_out
 
         # init data path
-        self.LR_path = os.path.join(self.data_dir, LR_name)
-        self.HR_path = os.path.join(self.data_dir, HR_name)
+        self.LR_path = os.path.join(self.data_dir, res_in)
+        self.HR_path = os.path.join(self.data_dir, res_out)
 
         self.file_names = os.listdir(self.LR_path)
         
-    # get the number of images
+    # length of dataset
     def __len__(self):
         return len(self.file_names)
     
-    # get LR and HR images
+    # input and label
     def __getitem__(self, index):
 
         file_name = self.file_names[index]
@@ -43,17 +55,14 @@ class LiSRDataset(Dataset):
         image_np_LR = np.expand_dims(np.load(file_path_LR), axis=0)
         image_np_HR = np.expand_dims(np.load(file_path_HR), axis=0)
 
-        # transform into tensor
-        # divide 100 for normalization
+        # normalization
         image = torch.Tensor(image_np_LR)/100
         label = torch.Tensor(image_np_HR)/100
-        #image = image.permute(2,0,1)
-        #label = label.permute(2,0,1)
 
         return image, label
     
 
-class LiSRDataModule(LightningDataModule):
+class RangeImageDataModule(LightningDataModule):
 
     def __init__(
         self,
@@ -96,7 +105,7 @@ class LiSRDataModule(LightningDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
         if not self.data_train and not self.data_val and not self.data_test:
             # define the dataset
-            dataset = LiSRDataset(self.data_dir, self.LR_name, self.HR_name)
+            dataset = RangeImageDataset(self.data_dir, self.LR_name, self.HR_name)
 
             train_len = np.fix(self.tran_val_test_split[0] * dataset.__len__()).astype(int)
             val_len = np.fix(self.tran_val_test_split[1] * dataset.__len__()).astype(int)
@@ -163,4 +172,4 @@ class LiSRDataModule(LightningDataModule):
 
 
 if __name__ == "__main__":
-    _ = LiSRDataModule()
+    _ = RangeImageDataModule()

@@ -11,11 +11,12 @@ from torchsummary import summary
 import torch.nn.functional as F
 
 
-###########################################################################################
-#################################        model        #####################################
-###########################################################################################
+"""
+LiDAR-SR PyTorch re-implementation 
+using the sources from https://github.com/RobustFieldAutonomyLab/lidar_super_resolution
+"""
 
-# define double conv block
+# double conv block
 class DoubleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
     def __init__(self, in_channels, out_channels, kernel_size=(3,3)):
@@ -33,7 +34,7 @@ class DoubleConv(nn.Module):
     def forward(self, x):
         return self.double_conv(x)
 
-# define down block
+# down block
 class Down(nn.Module):
     """Downscaling with avgpool then dropout"""
 
@@ -49,7 +50,7 @@ class Down(nn.Module):
     def forward(self, x):
         return self.pool_conv(x)
 
-# define up block
+# up block
 class UpBlock(nn.Module):
     """Upscaling then double conv"""
 
@@ -64,8 +65,8 @@ class UpBlock(nn.Module):
     def forward(self, x):
         return self.up(x)
 
-
-class LiSRNet(torch.nn.Module):
+# Unet
+class Unet(torch.nn.Module):
     def __init__(self, upscaling_factor, in_channels) -> None:
         super().__init__()
 
@@ -157,7 +158,8 @@ class LiSRNet(torch.nn.Module):
         return outputs
 
 
-class LiSRLitModule(LightningModule):
+# Unet Lightning Module
+class UnetLitModule(LightningModule):
 
     def __init__(
         self,
@@ -167,8 +169,9 @@ class LiSRLitModule(LightningModule):
         upscaling_factor: int,
         in_channels: int,
     ) -> None:
-        """Initialize a `LiSRModule`.
-
+        
+        """Initialize a `UnetLitModule`.
+    
         :param net: The model to train.
         :param optimizer: The optimizer to use for training.
         :param scheduler: The learning rate scheduler to use for training.
@@ -177,7 +180,7 @@ class LiSRLitModule(LightningModule):
 
         self.save_hyperparameters(logger=False)
 
-        self.net = LiSRNet(upscaling_factor=upscaling_factor,
+        self.net = Unet(upscaling_factor=upscaling_factor,
                            in_channels=in_channels)
         
         # loss function
@@ -235,7 +238,7 @@ class LiSRLitModule(LightningModule):
 
     def on_train_epoch_end(self) -> None:
         "Lightning hook that is called when a training epoch ends."
-
+        
         pass
 
     def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
@@ -249,7 +252,9 @@ class LiSRLitModule(LightningModule):
         self.log("val/acc", self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
 
     def on_validation_epoch_end(self) -> None:
+
         "Lightning hook that is called when a validation epoch ends."
+
         acc = self.val_acc.compute()  # get current val acc
         self.val_acc_best(acc)  # update best so far val acc
        
@@ -281,5 +286,5 @@ class LiSRLitModule(LightningModule):
 
 
 if __name__ == "__main__":
-    _ = LiSRLitModule(net=None, optimizer=torch.optim.Adam, scheduler=None,
+    _ = UnetLitModule(optimizer=torch.optim.Adam, scheduler=None,
                        upscaling_factor=4, in_channels=1)
